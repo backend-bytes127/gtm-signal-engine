@@ -1,0 +1,9 @@
+multiplier_name,condition,value,description
+breadth_1,distinct_people=1,1.0,Single person active
+breadth_2,distinct_people=2,1.3,Two people active in 14 days
+breadth_3,distinct_people>=3,1.6,Three or more people active in 14 days
+channel_mix_2,distinct_channels>=2,1.2,Activity from 2+ sources
+channel_mix_3,distinct_channels>=3,1.4,Activity from 3+ sources
+spike_2x,activity_ratio>=2,1.2,2x above 8-week average
+spike_4x,activity_ratio>=4,1.5,4x above 8-week average
+spike_8x,activity_ratio>=8,1.8,8x above 8-week average

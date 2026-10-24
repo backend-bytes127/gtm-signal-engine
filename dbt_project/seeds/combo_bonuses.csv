@@ -1,0 +1,6 @@
+combo_name,signal_a,signal_b,window_days,bonus_points,description
+docs_plus_security,docs_page,security_page,14,10,Docs + security page within 14 days
+pricing_plus_integration,pricing_page,integration_docs,14,8,Pricing + integration docs within 14 days
+trial_plus_pricing,product_trial,pricing_page,14,12,Trial + pricing page within 14 days
+funding_plus_hiring,funding_round,relevant_job_posts,60,15,Funding + relevant job posts within 60 days
+new_vp_plus_tool_change,new_vp_hire,tool_change,90,12,New VP hire + tool adoption/drop within 90 days

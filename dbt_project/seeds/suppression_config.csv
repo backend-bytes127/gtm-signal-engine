@@ -1,0 +1,7 @@
+parameter,value,description
+cooldown_days,7,Days after alert before same account can alert again
+cooldown_override_jump,2.0,Score multiplier to break cooldown early
+max_alerts_per_ae_per_day,5,Hard daily cap per AE
+tier_hot_threshold,70,Score above this = Hot tier
+tier_warm_threshold,40,Score above this = Warm tier
+tier_watch_threshold,20,Score above this = Watch tier

@@ -1,0 +1,38 @@
+[project]
+name = "gtm-signal-engine"
+version = "0.1.0"
+description = "Signal prioritization engine for enterprise sales"
+requires-python = ">=3.11"
+dependencies = [
+    "faker>=28.0",
+    "psycopg2-binary>=2.9",
+    "sqlalchemy>=2.0",
+    "dbt-core>=1.8",
+    "dbt-postgres>=1.8",
+    "dagster>=1.7",
+    "dagster-dbt>=0.23",
+    "dagster-webserver>=1.7",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.5",
+]
+activation = [
+    "hubspot-api-client>=9.0",
+    "slack-sdk>=3.30",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

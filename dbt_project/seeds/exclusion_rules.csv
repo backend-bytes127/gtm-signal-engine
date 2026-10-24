@@ -1,0 +1,7 @@
+rule_name,field,condition,description
+open_deal,deal_stage,not_null,Account has an active open deal
+existing_customer,customer_status,active,Account is a current customer
+competitor,account_tag,competitor,Account is a known competitor
+partner,account_tag,partner,Account is a partner
+do_not_contact,contact_status,dnc,Account is on do-not-contact list
+internal,email_domain,matches_internal,Internal employee traffic

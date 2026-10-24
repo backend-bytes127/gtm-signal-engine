@@ -1,0 +1,19 @@
+signal_type,signal_category,base_weight,half_life_days,description
+security_page,engagement,8,7,Security or compliance page visit
+pricing_page,engagement,5,5,Pricing page visit
+integration_docs,engagement,3,10,Integration or API docs visit
+product_trial,engagement,3,14,Product trial started
+docs_page,engagement,2,10,Documentation page visit
+demo_request,engagement,10,14,Demo form submission
+case_study,engagement,2,7,Case study or customer story page
+ad_click,engagement,1,3,Paid ad click
+email_click,engagement,1,3,Email link click
+blog_visit,engagement,0.5,3,Blog page visit
+new_vp_hire,trigger,4,60,New VP or Head of relevant team
+funding_round,trigger,5,90,Funding round announced
+relevant_job_posts,trigger,3,45,Job posts for relevant roles
+tool_change,trigger,4,45,Adopted or dropped a relevant tool
+company_size,fit,0,0,Matches ICP company size range
+target_industry,fit,0,0,Matches ICP industry
+target_region,fit,0,0,Matches ICP region
+tech_stack_match,fit,0,0,Uses complementary or competitor tool
