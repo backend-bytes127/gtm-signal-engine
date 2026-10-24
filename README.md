@@ -19,6 +19,8 @@ A scoring engine that judges **patterns, not events**:
 
 ![Architecture](docs/architecture.png)
 
+📄 **[Full Architecture Spec](docs/architecture.md)** — Functional requirements, data design (ERD + schemas), interface contracts, scoring algorithm, trade-offs, and milestones.
+
 ## Stack
 
 | Layer | Tool | Why |
