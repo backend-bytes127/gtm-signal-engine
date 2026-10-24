@@ -17,14 +17,7 @@ A scoring engine that judges **patterns, not events**:
 
 ## Architecture
 
-```
-Bronze (raw events)
-  → Silver (cleaned, account-matched)
-    → Gold (scored: decay + weights + pattern multipliers)
-      → Filter (threshold, cooldown, exclusions)
-        → Activate (HubSpot + Slack)
-          → Feedback (rep ratings tune weights)
-```
+![Architecture](docs/architecture.png)
 
 ## Stack
 
