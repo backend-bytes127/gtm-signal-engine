@@ -17,7 +17,15 @@ logs/
 
 # Dagster
 .dagster/
+.tmp_dagster_home_*/
 storage/
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+
+# Docs
+*.docx
 
 # IDE
 .vscode/

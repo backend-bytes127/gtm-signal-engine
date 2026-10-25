@@ -1,8 +1,11 @@
 """Dagster assets for the GTM Signal Engine pipeline."""
+import subprocess
+import sys
+
 from dagster import asset, AssetExecutionContext, MaterializeResult, MetadataValue
 from dagster_dbt import DbtCliResource, dbt_assets, DagsterDbtTranslator, DbtProject
 
-from orchestration.constants import DBT_PROJECT_DIR, DBT_PROFILES_DIR
+from orchestration.constants import DBT_PROJECT_DIR, DBT_PROFILES_DIR, PROJECT_ROOT
 
 dbt_project = DbtProject(
     project_dir=DBT_PROJECT_DIR,
@@ -30,27 +33,39 @@ class SignalEngineDbtTranslator(DagsterDbtTranslator):
     description="Generate synthetic accounts, contacts, and events into DuckDB.",
 )
 def synthetic_data(context: AssetExecutionContext) -> MaterializeResult:
-    """Run the datagen pipeline to populate bronze tables."""
-    from datagen.__main__ import main as run_datagen
+    """Run the datagen pipeline as a subprocess to avoid DuckDB lock conflicts."""
+    context.log.info("Starting synthetic data generation (subprocess)...")
+    result = subprocess.run(
+        [sys.executable, "-m", "datagen"],
+        cwd=str(PROJECT_ROOT),
+        env={**__import__("os").environ, "PYTHONPATH": str(PROJECT_ROOT)},
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        context.log.error("datagen stderr: %s", result.stderr)
+        raise RuntimeError(f"datagen failed:\n{result.stderr}")
+    context.log.info(result.stdout)
 
-    context.log.info("Starting synthetic data generation...")
-    run_datagen()
-    context.log.info("Data generation complete.")
-
-    import duckdb
-    from orchestration.constants import DB_PATH
-
-    conn = duckdb.connect(str(DB_PATH), read_only=True)
-    account_count = conn.execute("SELECT COUNT(*) FROM bronze.accounts").fetchall()[0][0]
-    contact_count = conn.execute("SELECT COUNT(*) FROM bronze.contacts").fetchall()[0][0]
-    event_count = conn.execute("SELECT COUNT(*) FROM bronze.raw_events").fetchall()[0][0]
-    conn.close()
+    counts = subprocess.run(
+        [
+            sys.executable, "-c",
+            "import duckdb, json; "
+            f"c = duckdb.connect('{PROJECT_ROOT / 'data' / 'signal_engine.duckdb'}', read_only=True); "
+            "r = {t: c.execute(f'SELECT COUNT(*) FROM bronze.{t}').fetchone()[0] "
+            "for t in ['accounts','contacts','raw_events']}; "
+            "c.close(); print(json.dumps(r))",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    meta = __import__("json").loads(counts.stdout) if counts.returncode == 0 else {}
 
     return MaterializeResult(
         metadata={
-            "accounts": MetadataValue.int(account_count),
-            "contacts": MetadataValue.int(contact_count),
-            "events": MetadataValue.int(event_count),
+            "accounts": MetadataValue.int(meta.get("accounts", 0)),
+            "contacts": MetadataValue.int(meta.get("contacts", 0)),
+            "events": MetadataValue.int(meta.get("raw_events", 0)),
         }
     )
 

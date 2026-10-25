@@ -6,7 +6,8 @@ from pathlib import Path
 
 import duckdb
 
-from activation.hubspot import AlertPayload, push_alerts
+from activation.attio import push_alerts as push_attio_alerts
+from activation.hubspot import AlertPayload, push_alerts as push_hubspot_alerts
 from activation.slack import send_daily_digest, send_hot_alerts
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -49,9 +50,14 @@ def run() -> None:
         return
 
     logger.info("Pushing to HubSpot...")
-    hubspot_results = push_alerts(alerts)
+    hubspot_results = push_hubspot_alerts(alerts)
     pushed = sum(1 for r in hubspot_results if r["status"] in ("pushed", "dry_run"))
     logger.info("HubSpot: %d/%d pushed", pushed, len(alerts))
+
+    logger.info("Pushing to Attio...")
+    attio_results = push_attio_alerts(alerts)
+    attio_pushed = sum(1 for r in attio_results if r["status"] in ("pushed", "dry_run"))
+    logger.info("Attio: %d/%d pushed", attio_pushed, len(alerts))
 
     logger.info("Sending Slack digest...")
     digest_result = send_daily_digest(alerts)
