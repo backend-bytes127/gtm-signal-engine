@@ -25,8 +25,8 @@ A scoring engine that judges **patterns, not events**:
 
 | Layer | Tool | Why |
 |-------|------|-----|
-| Database | Neon Postgres | Free tier, real cloud DB, SQL-native |
-| Transforms | dbt-core | Medallion models, weights in seed files |
+| Database | DuckDB | Zero-setup, embedded analytical DB, SQL-native |
+| Transforms | dbt-core + dbt-duckdb | Medallion models, weights in seed files |
 | Orchestration | Dagster | Asset-based DAG, dbt integration, web UI |
 | Data generation | Python + Faker | Synthetic accounts, events, planted buyers |
 | Activation | HubSpot sandbox | Score + tier + reason as account properties |
@@ -49,13 +49,16 @@ All weights and multipliers live in dbt seed files — tuning is a config change
 
 ## Milestones
 
-| # | Milestone | Output |
-|---|-----------|--------|
-| 1 | Data + base score | Faker script, bronze/silver/gold tables, decayed scores, naive vs engine alert count |
-| 2 | Pattern rules | Breadth, channel mix, combos, spike detection, planted-buyer recall |
-| 3 | Suppression + reasons | Threshold, cooldown, exclusions, plain-English alert explanation |
-| 4 | Activation | HubSpot push, Dagster scheduled run, Slack summary |
-| 5 | Write-up | Architecture docs, trade-offs, results table |
+- [x] **M1 — Data Generation + Scoring Pipeline**
+  Faker script (500 accounts, 4.5k contacts, 100k events, 10 planted buyers), full dbt pipeline: bronze staging → silver enrichment → gold scoring (time-decayed weights, pattern multipliers, combo bonuses, ICP fit gate, suppression, attention budget). All 10 planted buyers surface in hot tier.
+- [ ] **M2 — Dagster Orchestration**
+  Wrap datagen + dbt into Dagster assets, scheduled daily runs, retry logic, web UI observability.
+- [ ] **M3 — Activation Layer**
+  HubSpot integration (push alerts as tasks/deals), Slack notifications (weekly digest + real-time hot alerts), alert feedback loop.
+- [ ] **M4 — Feedback & Tuning**
+  Alert feedback table (accept/dismiss/convert), weight auto-tuning from feedback signals, signal effectiveness dashboard.
+- [ ] **M5 — Production Hardening**
+  Cloud warehouse migration, CI/CD pipeline, dbt tests, data quality checks, auth, rate limiting, monitoring.
 
 ## Project Structure
 
@@ -63,36 +66,34 @@ All weights and multipliers live in dbt seed files — tuning is a config change
 gtm-signal-engine/
 ├── README.md
 ├── pyproject.toml
+├── docs/
+│   ├── architecture.md       # Full spec (FR, NFR, data design, HLD, LLD)
+│   └── architecture.png      # System diagram
 ├── datagen/                  # Faker-based synthetic data
-│   ├── __init__.py
-│   ├── accounts.py           # Company generation
-│   ├── people.py             # Contact generation
+│   ├── __main__.py           # Runner — generates all data into DuckDB
+│   ├── accounts.py           # Company generation (ICP, competitors, partners)
+│   ├── people.py             # Contact generation (seniority distribution)
 │   ├── events.py             # Event generation (noise + planted buyers)
-│   └── config.py             # Generation parameters
-├── dbt_project/              # dbt models
+│   └── config.py             # Generation parameters (frozen dataclass)
+├── dbt_project/              # dbt models (DuckDB adapter)
 │   ├── dbt_project.yml
 │   ├── profiles.yml
 │   ├── seeds/                # Signal weights, multipliers, exclusions
 │   │   ├── signal_taxonomy.csv
 │   │   ├── pattern_multipliers.csv
-│   │   └── exclusion_rules.csv
+│   │   ├── combo_bonuses.csv
+│   │   ├── exclusion_rules.csv
+│   │   └── suppression_config.csv
 │   └── models/
-│       ├── bronze/           # Raw event loading
-│       ├── silver/           # Cleaned, account-matched
-│       ├── gold/             # Scoring models
-│       └── activation/       # Alert generation, suppression
-├── orchestration/            # Dagster definitions
-│   ├── __init__.py
-│   ├── assets.py
-│   └── schedules.py
-├── activation/               # HubSpot + Slack push
-│   ├── __init__.py
-│   ├── hubspot.py
-│   └── slack.py
-└── tests/
-    ├── test_datagen.py
-    ├── test_scoring.py
-    └── test_suppression.py
+│       ├── bronze/           # Staging views (stg_accounts, stg_contacts, stg_raw_events)
+│       ├── silver/           # cleaned_events (joined, enriched, filtered)
+│       └── gold/             # Scoring + activation (9 models)
+├── data/                     # Generated at runtime (gitignored)
+│   ├── signal_engine.duckdb
+│   └── planted_buyer_ids.json
+├── orchestration/            # (M2) Dagster definitions
+├── activation/               # (M3) HubSpot + Slack push
+└── tests/                    # (M2) Test suite
 ```
 
 ## Setup
@@ -103,16 +104,15 @@ python3 -m venv venv
 source venv/bin/activate
 
 # Install dependencies
-pip install -e ".[dev]"
+pip install faker duckdb dbt-core dbt-duckdb python-dotenv
 
-# Run data generation
+# Generate synthetic data into DuckDB
 python -m datagen
 
-# Run dbt
-cd dbt_project && dbt run
-
-# Launch Dagster UI
-dagster dev
+# Load seed files and run scoring pipeline
+cd dbt_project
+dbt seed --profiles-dir .
+dbt run --profiles-dir .
 ```
 
 ## Key Design Decisions
