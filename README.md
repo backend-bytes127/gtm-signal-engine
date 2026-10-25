@@ -192,7 +192,7 @@ Without credentials, activation runs in **dry-run mode** — logs what would be 
   Next.js 16 + React + shadcn/ui + Recharts. Four pages with tier distribution charts, score comparisons, and "Why Now" explanations.
 
 - [ ] **M7 — LLM-Powered Signal Scoring** *(proposed — [spec](docs/m7-llm-scoring-spec.md))*
-  Claude as the scoring engine: heuristic scores pre-filter ~500 accounts down to ~50 candidates, then Haiku (bulk) and Sonnet (top 20) score intent and write a "Why Now" explanation for each one. Falls back to the heuristic score if the API fails. Estimated cost is about $0.80 per daily run.
+  Model judgment replaces the hand-tuned weights. Heuristic scores pre-filter ~500 accounts down to ~50 candidates. Jev (TypeSafe System One) answers typed questions about each one (intent tier, buying committee, urgency) with calibrated probabilities, and code turns those into scores and tiers. Claude Haiku writes "Why Now" explanations for hot accounts. Falls back to the heuristic score if the API fails.
 
 ## Project Structure
 
