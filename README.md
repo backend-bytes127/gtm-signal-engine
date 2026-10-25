@@ -20,7 +20,7 @@ A scoring engine that judges **patterns, not events**:
 - **Plain-English explanations** — every alert tells the rep *why now*
 - **Multi-CRM activation** — pushes to HubSpot, Attio, and Slack simultaneously
 
-## Screenshots
+## In Action
 
 ### Dashboard — KPI Cards, Tier Distribution, Top Alerts
 ![Dashboard](docs/screenshots/dashboard.jpg)
