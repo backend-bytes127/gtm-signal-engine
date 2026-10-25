@@ -17,7 +17,9 @@ A scoring engine that judges **patterns, not events**:
 
 ## Architecture
 
-![Architecture](docs/architecture.png)
+![Pipeline Architecture](docs/pipeline_architecture.png)
+
+> *Generated with the [diagrams](https://diagrams.mingrammer.com/) Python library — `python docs/generate_diagram.py` to regenerate.*
 
 📄 **[Full Architecture Spec](docs/architecture.md)** — Functional requirements, data design (ERD + schemas), interface contracts, scoring algorithm, trade-offs, and milestones.
 
@@ -51,8 +53,8 @@ All weights and multipliers live in dbt seed files — tuning is a config change
 
 - [x] **M1 — Data Generation + Scoring Pipeline**
   Faker script (500 accounts, 4.5k contacts, 100k events, 10 planted buyers), full dbt pipeline: bronze staging → silver enrichment → gold scoring (time-decayed weights, pattern multipliers, combo bonuses, ICP fit gate, suppression, attention budget). All 10 planted buyers surface in hot tier.
-- [ ] **M2 — Dagster Orchestration**
-  Wrap datagen + dbt into Dagster assets, scheduled daily runs, retry logic, web UI observability.
+- [x] **M2 — Dagster Orchestration**
+  22 Dagster assets (datagen + 5 seeds + 3 sources + 13 dbt models), daily 6AM UTC schedule, `dagster dev` web UI for observability. Architecture diagram generated with `diagrams` library.
 - [ ] **M3 — Activation Layer**
   HubSpot integration (push alerts as tasks/deals), Slack notifications (weekly digest + real-time hot alerts), alert feedback loop.
 - [ ] **M4 — Feedback & Tuning**
@@ -104,15 +106,15 @@ python3 -m venv venv
 source venv/bin/activate
 
 # Install dependencies
-pip install faker duckdb dbt-core dbt-duckdb python-dotenv
+pip install faker duckdb dbt-core dbt-duckdb dagster dagster-dbt dagster-duckdb dagster-webserver python-dotenv diagrams
 
-# Generate synthetic data into DuckDB
+# Option 1: Run pipeline manually
 python -m datagen
+cd dbt_project && dbt seed --profiles-dir . && dbt run --profiles-dir .
 
-# Load seed files and run scoring pipeline
-cd dbt_project
-dbt seed --profiles-dir .
-dbt run --profiles-dir .
+# Option 2: Run via Dagster (orchestrated)
+DAGSTER_HOME=. dagster dev -m orchestration.definitions
+# Then open http://localhost:3000 and materialize all assets
 ```
 
 ## Key Design Decisions
