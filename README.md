@@ -37,6 +37,10 @@ A scoring engine that judges **patterns, not events**:
 ### HubSpot — Companies Created from Alerts
 ![HubSpot Companies](docs/screenshots/hubspot-companies.jpg)
 
+### Dagster — Asset Lineage (22 Assets across 5 Groups)
+![Dagster Lineage Top](docs/screenshots/dagster-lineage-top.jpg)
+![Dagster Lineage Bottom](docs/screenshots/dagster-lineage-bottom.jpg)
+
 ## Architecture
 
 ![Pipeline Architecture](docs/pipeline_architecture.png)
@@ -67,6 +71,55 @@ Raw Events (100K+)
 | Activation | HubSpot + Attio + Slack | Multi-CRM push with dry-run mode |
 | Testing | pytest + dbt test | 15 Python tests + 35 dbt data tests |
 | CI | GitHub Actions | Lint, test, deploy |
+
+## How It Works — Step by Step
+
+For readers unfamiliar with the tools: here's what each layer does and how they connect.
+
+### 1. Data Generation (`python -m datagen`)
+
+A Python script generates realistic synthetic data into **DuckDB** (an embedded SQL database — no server needed):
+- **500 companies** with ICP fit scores (1–4)
+- **4,500 contacts** across those companies
+- **100,000+ events** (page visits, demo requests, job changes, etc.)
+- **10 planted buyers** — accounts with deliberate high-intent patterns to validate recall
+
+### 2. dbt Pipeline (`dbt seed && dbt run && dbt test`)
+
+**dbt (data build tool)** transforms raw data through SQL models organized in a medallion architecture:
+
+```
+Bronze (raw staging)     → stg_accounts, stg_contacts, stg_raw_events
+Silver (cleaned)         → cleaned_events (deduplicated, account-matched)
+Gold (scored + alerted)  → int_base_scores → int_pattern_metrics → account_scores → alerts
+```
+
+- **Seeds** are CSV config files (signal weights, multipliers, combo bonuses) — edit a CSV to retune, no code changes
+- **Tests** (35 total) validate data quality: not-null checks, unique constraints, accepted value ranges
+- Run `dbt test` to verify all 35 pass
+
+### 3. Dagster Orchestration (`dagster dev`)
+
+**Dagster** is the scheduler that runs everything in the right order:
+- **22 assets** organized into 5 groups: bronze, default (seeds), silver, gold, activation
+- **Asset lineage graph** shows dependencies — Dagster knows what to re-run when upstream data changes
+- **Daily schedule** at 6 AM UTC — regenerates data, re-runs dbt, delivers alerts
+- **Web UI** at `localhost:3002` for monitoring runs, viewing lineage, and triggering manual materializations
+
+### 4. Activation (`python -m activation.runner`)
+
+Reads the scored alerts from DuckDB and pushes them to three channels simultaneously:
+- **HubSpot** — creates/updates company records with signal descriptions, creates follow-up tasks
+- **Attio** — creates company records with signal alert notes
+- **Slack** — posts a daily digest + individual alert cards to `#signal-alerts`
+
+Without API credentials, everything runs in **dry-run mode** — logs exactly what would be sent.
+
+### 5. Dashboard (`npm run dev` in `/frontend`)
+
+A Next.js web app at `localhost:3001` that reads scored data from DuckDB and shows:
+- KPI summary cards, tier distribution charts, top alerts with "Why Now" explanations
+- Sortable account tables, signal taxonomy breakdowns, accept/dismiss actions
 
 ## Scoring Model
 

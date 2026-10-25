@@ -19,6 +19,10 @@ logs/
 .dagster/
 .tmp_dagster_home_*/
 storage/
+.nux/
+.telemetry/
+history/
+schedules/
 
 # Frontend
 frontend/node_modules/
