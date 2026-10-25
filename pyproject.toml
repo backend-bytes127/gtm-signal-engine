@@ -5,13 +5,9 @@ description = "Signal prioritization engine for enterprise sales"
 requires-python = ">=3.11"
 dependencies = [
     "faker>=28.0",
-    "psycopg2-binary>=2.9",
-    "sqlalchemy>=2.0",
+    "duckdb>=1.0",
     "dbt-core>=1.8",
-    "dbt-postgres>=1.8",
-    "dagster>=1.7",
-    "dagster-dbt>=0.23",
-    "dagster-webserver>=1.7",
+    "dbt-duckdb>=1.8",
     "python-dotenv>=1.0",
 ]
 
@@ -28,7 +24,7 @@ activation = [
 
 [build-system]
 requires = ["setuptools>=68.0"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [tool.ruff]
 line-length = 100

@@ -39,3 +39,9 @@ Thumbs.db
 # Data
 *.csv
 !dbt_project/seeds/*.csv
+*.duckdb
+*.duckdb.wal
+data/
+
+# dbt user config
+.user.yml

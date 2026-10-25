@@ -1,0 +1,21 @@
+version: 2
+
+models:
+  - name: int_base_scores
+    description: Decayed weighted signal scores per account
+  - name: int_fit_scores
+    description: ICP fit scoring (0-4) per prospect account
+  - name: int_pattern_metrics
+    description: Breadth, channel mix, and spike multipliers per account
+  - name: int_combo_matches
+    description: Detected signal pair combos per account
+  - name: account_scores
+    description: Final combined timing score with tier classification
+  - name: score_explanations
+    description: Plain-English why-now explanation per account
+  - name: int_suppression
+    description: Exclusion rule filtering
+  - name: int_attention_budget
+    description: Ranked alerts with daily AE cap enforcement
+  - name: alerts
+    description: Final alert output for delivery

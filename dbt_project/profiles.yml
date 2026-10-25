@@ -1,0 +1,7 @@
+signal_engine:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "../data/signal_engine.duckdb"
+      threads: 4
