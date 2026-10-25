@@ -47,16 +47,83 @@ A scoring engine that judges **patterns, not events**:
 
 **[Full Architecture Spec](docs/architecture.md)** — Functional requirements, data design (ERD + schemas), interface contracts, scoring algorithm, trade-offs, and milestones.
 
-### Data Flow (Medallion Architecture)
+### End-to-End Flow
 
+```mermaid
+flowchart LR
+    subgraph SRC["1 · Sources"]
+        DG["datagen<br/>500 accounts · 4.5k contacts<br/>100k events · 10 planted buyers"]
+    end
+
+    subgraph DB["2 · DuckDB + dbt (medallion)"]
+        direction LR
+        B[("Bronze<br/>raw staging views")]
+        S[("Silver<br/>cleaned, account-matched")]
+        G[("Gold<br/>scored + explained")]
+        B --> S --> G
+    end
+
+    CFG[/"Seed CSVs<br/>weights · multipliers · combos"/]
+
+    subgraph ACT["3 · Activation"]
+        HS["HubSpot<br/>company + task"]
+        AT["Attio<br/>company + note"]
+        SL["Slack<br/>digest + hot alerts"]
+    end
+
+    UI["4 · Next.js Dashboard"]
+    FB[("Rep feedback<br/>accept · dismiss · convert")]
+
+    DG --> B
+    CFG -.-> G
+    G -->|alerts| HS & AT & SL
+    G --> UI
+    UI --> FB
+    FB -.->|"tuning report (M4)"| CFG
+
+    DAG{{"Dagster<br/>daily 06:00 UTC"}} -.->|orchestrates| DG & DB & ACT
 ```
-Raw Events (100K+)
-  → Bronze (staging views — raw ingest)
-  → Silver (cleaned, deduplicated, account-matched)
-  → Gold (scored: time-decay x pattern multipliers + combo bonuses)
-  → Alerts (top N per attention budget, with explanations)
-  → Activation (HubSpot + Attio + Slack + Dashboard)
+
+### dbt Model Lineage (Medallion Architecture)
+
+Generated from the actual `ref()` dependencies in `dbt_project/models`:
+
+```mermaid
+flowchart LR
+    classDef bronze fill:#f3e3d3,stroke:#a0522d,color:#000
+    classDef silver fill:#e8e8e8,stroke:#707070,color:#000
+    classDef gold fill:#fff3c4,stroke:#b8860b,color:#000
+    classDef seed fill:#e3f2fd,stroke:#1e88e5,color:#000
+
+    stg_accounts:::bronze
+    stg_contacts:::bronze
+    stg_raw_events:::bronze
+    signal_taxonomy[/signal_taxonomy/]:::seed
+    combo_bonuses[/combo_bonuses/]:::seed
+    suppression_config[/suppression_config/]:::seed
+    exclusion_rules[/exclusion_rules/]:::seed
+
+    cleaned_events:::silver
+
+    stg_raw_events & stg_contacts & stg_accounts & signal_taxonomy --> cleaned_events
+
+    cleaned_events --> int_base_scores:::gold
+    cleaned_events --> int_pattern_metrics:::gold
+    cleaned_events & combo_bonuses --> int_combo_matches:::gold
+    stg_accounts --> int_fit_scores:::gold
+
+    int_base_scores & int_pattern_metrics & int_combo_matches & int_fit_scores --> account_scores:::gold
+    account_scores & int_combo_matches --> score_explanations:::gold
+    account_scores & suppression_config & exclusion_rules & stg_accounts --> int_suppression:::gold
+    int_suppression & suppression_config --> int_attention_budget:::gold
+    int_attention_budget & score_explanations & account_scores --> alerts:::gold
 ```
+
+| Layer | Models | What happens |
+|-------|--------|-------------|
+| **Bronze** | `stg_accounts`, `stg_contacts`, `stg_raw_events` | Raw data, typed and renamed. No business logic. |
+| **Silver** | `cleaned_events` | Deduplicated, matched to accounts, signal type and weight attached. |
+| **Gold** | 9 models ending in `alerts` | Decay, patterns, combos, fit, suppression, attention budget, explanations. |
 
 ## Tech Stack
 
@@ -146,6 +213,31 @@ final_score = base x m_breadth x m_channels x m_spike + combo_bonuses
 
 All weights and multipliers live in dbt seed files — **tuning is a config change, not a code change**.
 
+### How One Account Gets Scored
+
+```mermaid
+flowchart TD
+    E["Account's events"] --> W["× base weight<br/>demo request 10 · pricing 5 · blog 0.5"]
+    W --> D["× time decay 2^(−age / half-life)<br/>pricing: 5-day half-life · funding: 90-day"]
+    D --> BASE["Base score = Σ"]
+
+    E --> P{"Pattern checks"}
+    P -->|"2 people → ×1.3<br/>3+ people → ×1.6"| MB["× breadth"]
+    P -->|"2 sources → ×1.2<br/>3+ sources → ×1.4"| MC["× channel mix"]
+    P -->|"2× / 4× / 8× the<br/>8-week average"| MS["× spike 1.2 / 1.5 / 1.8"]
+    P -->|"e.g. trial + pricing<br/>within 14 days"| CB["Combo bonus: plus 8 to 15 pts"]
+
+    BASE & MB & MC & MS & CB --> T["Timing score 0–100"]
+
+    T --> FIT{"ICP fit gate<br/>fit 1–4, does not decay"}
+    FIT --> SUP{"Excluded?<br/>open deal · customer · competitor<br/>partner · do-not-contact · 7-day cooldown"}
+    SUP -->|yes| X2["Dropped"]
+    SUP -->|no| TIER{"Tier<br/>hot > 70 · warm > 40 · watch > 20"}
+    TIER --> BUD{"Within budget?<br/>max 5 alerts per AE per day"}
+    BUD -->|no| X3["Held — weakest drops out"]
+    BUD -->|yes| AL["🔥 Alert + Why-Now explanation"]
+```
+
 ## Frontend Dashboard
 
 Four views built with Next.js 16 + shadcn/ui:
@@ -171,6 +263,37 @@ The same `AlertPayload` pushes to three channels simultaneously:
 
 Without credentials, activation runs in **dry-run mode** — logs what would be pushed without making API calls.
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant D as Dagster (06:00 UTC)
+    participant R as activation.runner
+    participant DB as DuckDB (gold.alerts)
+    participant H as HubSpot
+    participant A as Attio
+    participant S as Slack #signal-alerts
+
+    D->>R: materialize deliver_alerts
+    R->>DB: SELECT today's alerts
+    DB-->>R: AlertPayload[]
+    loop each alert
+        R->>H: search company by domain
+        alt exists
+            R->>H: PATCH description
+        else new
+            R->>H: POST company
+        end
+        R->>H: POST task (priority by tier)
+        R->>A: query / create company
+        R->>A: POST note
+    end
+    R->>S: daily digest (all hot + warm)
+    loop each hot alert
+        R->>S: hot-account card
+    end
+    Note over R: No credentials → dry-run, logs payloads only
+```
+
 ## Milestones
 
 - [x] **M1 — Data Generation + Scoring Pipeline**
@@ -191,8 +314,51 @@ Without credentials, activation runs in **dry-run mode** — logs what would be 
 - [x] **M6 — Frontend Dashboard**
   Next.js 16 + React + shadcn/ui + Recharts. Four pages with tier distribution charts, score comparisons, and "Why Now" explanations.
 
+### Roadmap
+
+```mermaid
+flowchart LR
+    classDef done fill:#d4edda,stroke:#28a745,color:#000
+    classDef next fill:#fff3cd,stroke:#e0a800,color:#000
+    classDef later fill:#e2e3e5,stroke:#6c757d,color:#000
+
+    subgraph V1["v1 — Built ✅"]
+        direction TB
+        M1["M1 Data + Scoring"]:::done --> M2["M2 Dagster"]:::done --> M3["M3 Activation"]:::done
+        M3 --> M4["M4 Feedback"]:::done --> M5["M5 Hardening"]:::done --> M6["M6 Dashboard"]:::done
+    end
+
+    subgraph V2["v2 — Enterprise (proposed)"]
+        direction TB
+        M7["M7 Jev / LLM Scoring"]:::next
+        M8["M8 Real Data Connectors"]:::next
+        M9["M9 Production Deployment"]:::next
+        M10["M10 Auth, Multi-Tenant, Routing"]:::later
+        M11["M11 Closed-Loop Attribution"]:::later
+        M8 --> M9 --> M10
+        M7 --> M11
+        M9 --> M11
+    end
+
+    V1 --> V2
+```
+
+Full scope, diagrams and acceptance criteria for M8–M11: **[docs/roadmap.md](docs/roadmap.md)**
+
 - [ ] **M7 — LLM-Powered Signal Scoring** *(proposed — [spec](docs/m7-llm-scoring-spec.md))*
   Model judgment replaces the hand-tuned weights. Heuristic scores pre-filter ~500 accounts down to ~50 candidates. Jev (TypeSafe System One) answers typed questions about each one (intent tier, buying committee, urgency) with calibrated probabilities, and code turns those into scores and tiers. Claude Haiku writes "Why Now" explanations for hot accounts. Falls back to the heuristic score if the API fails.
+
+- [ ] **M8 — Real Data Connectors** *(proposed — [roadmap](docs/roadmap.md#m8--real-data-connectors))*
+  Replace Faker with live sources: HubSpot/Salesforce activity, website analytics (Segment/GA4), job-change and third-party intent feeds. Each source is a Dagster asset writing to bronze; dbt models unchanged.
+
+- [ ] **M9 — Production Deployment** *(proposed — [roadmap](docs/roadmap.md#m9--production-deployment))*
+  DuckDB file → hosted warehouse (MotherDuck or Postgres), Dagster on Dagster+ or a container, dashboard on Vercel, secrets in a manager, CI/CD with preview environments, pipeline alerting.
+
+- [ ] **M10 — Auth, Multi-Tenant & Alert Routing** *(proposed — [roadmap](docs/roadmap.md#m10--auth-multi-tenant--alert-routing))*
+  SSO login, role-based access, per-team signal config, territory-based routing so each AE gets only their accounts within their own attention budget.
+
+- [ ] **M11 — Closed-Loop Attribution** *(proposed — [roadmap](docs/roadmap.md#m11--closed-loop-attribution))*
+  Pull opportunity and closed-won outcomes back from the CRM, measure alert precision and pipeline influenced, feed outcomes into weight tuning and Jev thresholds.
 
 ## Project Structure
 

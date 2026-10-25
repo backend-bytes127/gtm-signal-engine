@@ -92,34 +92,57 @@ The rest of this spec describes the Claude-only design. If Jev is adopted, §2�
 
 ### Architecture
 
+```mermaid
+flowchart LR
+    classDef existing fill:#e8e8e8,stroke:#707070,color:#000
+    classDef new fill:#fff3cd,stroke:#e0a800,color:#000
+
+    subgraph OLD["Existing pipeline (unchanged)"]
+        direction LR
+        DG["datagen / connectors"]:::existing --> BR["bronze"]:::existing --> SV["silver"]:::existing --> GD["gold<br/>heuristic account_scores"]:::existing
+    end
+
+    GD --> PF{"Pre-filter<br/>heuristic score ≥ cutoff<br/>~500 → ~50"}:::new
+    PF -->|below cutoff| KEEP["Keep heuristic score"]:::existing
+    PF -->|candidates| CTX["Build AccountContext<br/>signals · contacts · timeline · fit"]:::new
+    CTX --> HASH{"signal_hash<br/>changed?"}:::new
+    HASH -->|no| CACHE["Reuse stored judgment"]:::new
+    HASH -->|yes| JEV["Jev System One<br/>intent_tier · buying_committee · urgency"]:::new
+    JEV --> POL["Code policy<br/>probabilities → timing_score + tier<br/>(weights in seed CSV)"]:::new
+    CACHE --> POL
+    POL --> EXP{"tier = hot?"}:::new
+    EXP -->|yes| CL["Claude Haiku<br/>writes Why-Now"]:::new
+    EXP -->|no| TPL["Template Why-Now"]:::new
+    CL & TPL --> STORE[("llm_account_scores")]:::new
+    KEEP --> STORE
+    STORE --> ACTV["Activation + Dashboard<br/>(same AlertPayload)"]:::existing
+    JEV -. "API error after retries" .-> KEEP
 ```
-┌─────────────────────────────────────────────────────────┐
-│  Existing Pipeline (unchanged)                          │
-│                                                         │
-│  datagen → bronze → silver → gold (heuristic scores)    │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────┐
-│  NEW: LLM Scoring Layer                                 │
-│                                                         │
-│  1. Pre-filter: heuristic score > threshold (~50)       │
-│     → narrows 500 accounts to ~50 candidates            │
-│                                                         │
-│  2. Context assembly: for each candidate, build a       │
-│     structured prompt with all signals, contacts,       │
-│     event timeline, ICP fit, and historical patterns    │
-│                                                         │
-│  3. Claude scoring:                                     │
-│     - Haiku for bulk candidates (cheap, fast)           │
-│     - Sonnet for top 20 by heuristic score (deeper)     │
-│                                                         │
-│  4. Store LLM score (0-100), tier, and explanation      │
-│     back into DuckDB as llm_account_scores              │
-│                                                         │
-│  5. Activation layer reads llm_account_scores           │
-│     instead of heuristic account_scores                 │
-└─────────────────────────────────────────────────────────┘
+
+### Scoring sequence (one daily run)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant D as Dagster llm_scores asset
+    participant DB as DuckDB
+    participant J as Jev (TypeSafe System One)
+    participant C as Claude Haiku
+
+    D->>DB: read gold.account_scores (heuristic)
+    DB-->>D: ~50 candidates above cutoff
+    D->>DB: load stored judgments by signal_hash
+    par up to 10 concurrent
+        D->>J: POST /v1/systemone {state, questions}
+        J-->>D: choice + noul + score answers with probabilities
+    end
+    Note over D,J: 429 / 529 / 5xx → exponential backoff (4 attempts)
+    D->>D: apply thresholds from seed CSV → timing_score, tier
+    loop hot accounts only
+        D->>C: context + Jev judgments
+        C-->>D: 1–2 sentence Why-Now
+    end
+    D->>DB: upsert llm_account_scores (raw probabilities kept)
 ```
 
 ### What Changes
