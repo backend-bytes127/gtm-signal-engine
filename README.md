@@ -2,6 +2,8 @@
 
 > A signal prioritization engine for enterprise sales that replaces noisy single-event alerts with account-level intent scoring — fewer alerts, every one worth acting on.
 
+![How the GTM Signal Engine works — animated walkthrough](docs/signal-engine-demo.gif)
+
 ## The Problem
 
 Enterprise revenue teams drown in single-event alerts — page visits, job changes, ad clicks, webinar signups. Reps get 50+ notifications a day, stop reading them, and miss real buyers hiding in the noise.
