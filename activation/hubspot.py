@@ -21,18 +21,22 @@ class AlertPayload:
 
 
 def _build_company_properties(alert: AlertPayload) -> dict[str, Any]:
+    description = (
+        f"[Signal Engine] Tier: {alert.tier.upper()} | "
+        f"Score: {round(alert.timing_score, 1)}/100 | "
+        f"Fit: {alert.fit_score}/4\n"
+        f"Why now: {alert.explanation}"
+    )
     return {
         "properties": {
-            "signal_tier": alert.tier,
-            "signal_score": str(round(alert.timing_score, 1)),
-            "signal_fit_score": str(alert.fit_score),
-            "signal_explanation": alert.explanation[:500],
-            "signal_last_scored": "today",
+            "description": description[:2000],
         }
     }
 
 
 def _build_task_properties(alert: AlertPayload) -> dict[str, Any]:
+    from datetime import datetime, timezone
+
     subject = f"[{alert.tier.upper()}] {alert.company_name} — Score {round(alert.timing_score, 1)}"
     body = (
         f"Signal Engine Alert\n\n"
@@ -49,6 +53,7 @@ def _build_task_properties(alert: AlertPayload) -> dict[str, Any]:
             "hs_task_body": body,
             "hs_task_status": "NOT_STARTED",
             "hs_task_priority": "HIGH" if alert.tier == "hot" else "MEDIUM",
+            "hs_timestamp": datetime.now(timezone.utc).isoformat(),
         }
     }
 

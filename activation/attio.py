@@ -45,7 +45,7 @@ class AttioClient:
             headers=self._headers(),
             json={
                 "filter": {
-                    "domains": {"contains": domain},
+                    "domains": domain,
                 },
                 "limit": 1,
             },

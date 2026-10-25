@@ -130,22 +130,27 @@ class SlackClient:
         from slack_sdk import WebClient
 
         client = WebClient(token=self.bot_token)
-        resp = client.chat_postMessage(channel=channel, blocks=blocks)
+        resp = client.chat_postMessage(channel=channel, blocks=blocks, text="Signal Engine Alert")
         return {"status": "sent_via_bot", "ts": resp["ts"]}
 
 
-def send_daily_digest(alerts: list[AlertPayload], channel: str = "#signal-alerts") -> dict:
-    client = SlackClient()
-    return client.send_digest(alerts, channel)
+def _default_channel() -> str:
+    return os.environ.get("SLACK_CHANNEL_ID", "#signal-alerts")
 
 
-def send_hot_alerts(alerts: list[AlertPayload], channel: str = "#signal-alerts") -> list[dict]:
+def send_daily_digest(alerts: list[AlertPayload], channel: str | None = None) -> dict:
     client = SlackClient()
+    return client.send_digest(alerts, channel or _default_channel())
+
+
+def send_hot_alerts(alerts: list[AlertPayload], channel: str | None = None) -> list[dict]:
+    client = SlackClient()
+    ch = channel or _default_channel()
     results = []
     hot = [a for a in alerts if a.tier == "hot"]
     for alert in hot:
         try:
-            result = client.send_hot_alert(alert, channel)
+            result = client.send_hot_alert(alert, ch)
             results.append(result)
         except Exception:
             logger.exception("Failed to send hot alert for %s", alert.company_name)
