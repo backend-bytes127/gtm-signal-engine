@@ -62,3 +62,34 @@ def synthetic_data(context: AssetExecutionContext) -> MaterializeResult:
 def dbt_signal_engine(context: AssetExecutionContext, dbt: DbtCliResource):
     """Run all dbt models: bronze staging → silver enrichment → gold scoring."""
     yield from dbt.cli(["build"], context=context).stream()
+
+
+@asset(
+    group_name="activation",
+    deps=["alerts"],
+    description="Push scored alerts to HubSpot and Slack.",
+)
+def deliver_alerts(context: AssetExecutionContext) -> MaterializeResult:
+    """Load alerts from DuckDB and push to HubSpot + Slack."""
+    from activation.runner import load_alerts
+    from activation.hubspot import push_alerts
+    from activation.slack import send_daily_digest, send_hot_alerts
+
+    alerts = load_alerts()
+    context.log.info("Loaded %d alerts", len(alerts))
+
+    hubspot_results = push_alerts(alerts)
+    pushed = sum(1 for r in hubspot_results if r["status"] in ("pushed", "dry_run"))
+
+    digest_result = send_daily_digest(alerts)
+    hot = [a for a in alerts if a.tier == "hot"]
+    hot_results = send_hot_alerts(alerts) if hot else []
+
+    return MaterializeResult(
+        metadata={
+            "total_alerts": MetadataValue.int(len(alerts)),
+            "hubspot_pushed": MetadataValue.int(pushed),
+            "slack_digest": MetadataValue.text(digest_result["status"]),
+            "hot_alerts_sent": MetadataValue.int(len(hot_results)),
+        }
+    )

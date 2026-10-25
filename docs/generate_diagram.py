@@ -4,13 +4,16 @@ from pathlib import Path
 from diagrams import Cluster, Diagram, Edge
 from diagrams.custom import Custom
 from diagrams.onprem.analytics import Dbt
-from diagrams.onprem.database import PostgreSQL
-from diagrams.onprem.workflow import Airflow
 from diagrams.programming.language import Python
 from diagrams.saas.chat import Slack
 from diagrams.generic.storage import Storage
 
 DOCS_DIR = Path(__file__).parent
+ICONS_DIR = DOCS_DIR / "icons"
+
+dagster_icon = str(ICONS_DIR / "dagster.png")
+hubspot_icon = str(ICONS_DIR / "hubspot.png")
+duckdb_icon = str(ICONS_DIR / "duckdb.png")
 
 
 with Diagram(
@@ -35,16 +38,16 @@ with Diagram(
         triggers = Storage("Trigger\nEvents")
 
     with Cluster("Orchestration"):
-        dagster = Airflow("Dagster\n(Daily 6AM UTC)")
+        dagster = Custom("Dagster\n(Daily 6AM UTC)", dagster_icon)
 
     with Cluster("Data Generation"):
         faker = Python("Faker\nSynthetic Data")
 
-    with Cluster("DuckDB — Medallion Architecture"):
+    with Cluster("DuckDB — Medallion Architecture", graph_attr={"style": "dashed"}):
         with Cluster("Bronze (Raw)"):
-            raw_accounts = PostgreSQL("accounts")
-            raw_contacts = PostgreSQL("contacts")
-            raw_events = PostgreSQL("raw_events")
+            raw_accounts = Custom("accounts", duckdb_icon)
+            raw_contacts = Custom("contacts", duckdb_icon)
+            raw_events = Custom("raw_events", duckdb_icon)
 
         with Cluster("Silver (Enriched)"):
             cleaned = Dbt("cleaned_events\n(joined + taxonomy)")
@@ -61,11 +64,11 @@ with Diagram(
             budget = Dbt("attention_budget\n(5/AE/day cap)")
             alerts = Dbt("alerts\n+ explanations")
 
-    with Cluster("Delivery (M3)"):
-        hubspot = Storage("HubSpot\nCRM Push")
+    with Cluster("Delivery"):
+        hubspot = Custom("HubSpot\nCRM Push", hubspot_icon)
         slack = Slack("Slack\nDigest")
 
-    with Cluster("Feedback (M4)"):
+    with Cluster("Feedback Loop"):
         feedback = Storage("Rep Feedback\n(accept/dismiss)")
 
     # Source → Bronze

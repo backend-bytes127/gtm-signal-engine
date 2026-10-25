@@ -19,8 +19,6 @@ A scoring engine that judges **patterns, not events**:
 
 ![Pipeline Architecture](docs/pipeline_architecture.png)
 
-> *Generated with the [diagrams](https://diagrams.mingrammer.com/) Python library — `python docs/generate_diagram.py` to regenerate.*
-
 📄 **[Full Architecture Spec](docs/architecture.md)** — Functional requirements, data design (ERD + schemas), interface contracts, scoring algorithm, trade-offs, and milestones.
 
 ## Stack
@@ -55,8 +53,8 @@ All weights and multipliers live in dbt seed files — tuning is a config change
   Faker script (500 accounts, 4.5k contacts, 100k events, 10 planted buyers), full dbt pipeline: bronze staging → silver enrichment → gold scoring (time-decayed weights, pattern multipliers, combo bonuses, ICP fit gate, suppression, attention budget). All 10 planted buyers surface in hot tier.
 - [x] **M2 — Dagster Orchestration**
   22 Dagster assets (datagen + 5 seeds + 3 sources + 13 dbt models), daily 6AM UTC schedule, `dagster dev` web UI for observability. Architecture diagram generated with `diagrams` library.
-- [ ] **M3 — Activation Layer**
-  HubSpot integration (push alerts as tasks/deals), Slack notifications (weekly digest + real-time hot alerts), alert feedback loop.
+- [x] **M3 — Activation Layer**
+  HubSpot CRM push (company properties + tasks), Slack notifications (daily digest + per-account hot alerts), alert feedback table (accept/dismiss/convert/stale). Dry-run mode when no credentials set.
 - [ ] **M4 — Feedback & Tuning**
   Alert feedback table (accept/dismiss/convert), weight auto-tuning from feedback signals, signal effectiveness dashboard.
 - [ ] **M5 — Production Hardening**
