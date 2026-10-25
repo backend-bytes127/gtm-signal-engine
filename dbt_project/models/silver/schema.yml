@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: cleaned_events
+    description: Events joined to contacts/accounts, enriched with taxonomy, noise excluded
+    columns:
+      - name: event_id
+        tests:
+          - not_null
+      - name: account_id
+        tests:
+          - not_null
+      - name: event_type
+        tests:
+          - not_null
+      - name: base_weight
+        tests:
+          - not_null

@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check .
+      - run: ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install faker duckdb dbt-core dbt-duckdb python-dotenv pytest pytest-cov
+      - name: Generate synthetic data
+        run: PYTHONPATH=$PWD python -m datagen
+      - name: Run dbt seed + build + test
+        working-directory: dbt_project
+        run: |
+          dbt seed --profiles-dir .
+          dbt run --profiles-dir .
+          dbt test --profiles-dir .
+      - name: Run Python tests
+        run: PYTHONPATH=$PWD python -m pytest tests/ -v --tb=short

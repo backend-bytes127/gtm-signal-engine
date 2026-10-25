@@ -3,19 +3,85 @@ version: 2
 models:
   - name: int_base_scores
     description: Decayed weighted signal scores per account
+    columns:
+      - name: account_id
+        tests:
+          - not_null
+          - unique
+      - name: base_score
+        tests:
+          - not_null
+
   - name: int_fit_scores
     description: ICP fit scoring (0-4) per prospect account
+    columns:
+      - name: account_id
+        tests:
+          - not_null
+          - unique
+      - name: fit_score
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1, 2, 3, 4]
+
   - name: int_pattern_metrics
     description: Breadth, channel mix, and spike multipliers per account
+    columns:
+      - name: account_id
+        tests:
+          - not_null
+          - unique
+
   - name: int_combo_matches
     description: Detected signal pair combos per account
+
   - name: account_scores
     description: Final combined timing score with tier classification
+    columns:
+      - name: account_id
+        tests:
+          - not_null
+          - unique
+      - name: timing_score
+        tests:
+          - not_null
+      - name: tier
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['hot', 'warm', 'watch', 'cold']
+
   - name: score_explanations
     description: Plain-English why-now explanation per account
+    columns:
+      - name: account_id
+        tests:
+          - not_null
+      - name: explanation
+        tests:
+          - not_null
+
   - name: int_suppression
     description: Exclusion rule filtering
+    columns:
+      - name: account_id
+        tests:
+          - not_null
+
   - name: int_attention_budget
     description: Ranked alerts with daily AE cap enforcement
+    columns:
+      - name: account_id
+        tests:
+          - not_null
+
   - name: alerts
     description: Final alert output for delivery
+    columns:
+      - name: account_id
+        tests:
+          - not_null
+      - name: explanation
+        tests:
+          - not_null

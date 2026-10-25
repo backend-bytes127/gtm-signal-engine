@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: stg_raw_events
+    description: Staged raw events from bronze
+    columns:
+      - name: event_id
+        tests:
+          - not_null
+          - unique
+      - name: event_type
+        tests:
+          - not_null
+      - name: occurred_at
+        tests:
+          - not_null
+
+  - name: stg_accounts
+    description: Staged accounts from bronze
+    columns:
+      - name: account_id
+        tests:
+          - not_null
+          - unique
+      - name: company_name
+        tests:
+          - not_null
+      - name: domain
+        tests:
+          - not_null
+
+  - name: stg_contacts
+    description: Staged contacts from bronze
+    columns:
+      - name: contact_id
+        tests:
+          - not_null
+          - unique
+      - name: email
+        tests:
+          - not_null
+
+sources:
+  - name: bronze
+    schema: bronze
+    tables:
+      - name: accounts
+      - name: contacts
+      - name: raw_events

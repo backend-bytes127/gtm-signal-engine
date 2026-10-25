@@ -55,10 +55,10 @@ All weights and multipliers live in dbt seed files — tuning is a config change
   22 Dagster assets (datagen + 5 seeds + 3 sources + 13 dbt models), daily 6AM UTC schedule, `dagster dev` web UI for observability. Architecture diagram generated with `diagrams` library.
 - [x] **M3 — Activation Layer**
   HubSpot CRM push (company properties + tasks), Slack notifications (daily digest + per-account hot alerts), alert feedback table (accept/dismiss/convert/stale). Dry-run mode when no credentials set.
-- [ ] **M4 — Feedback & Tuning**
-  Alert feedback table (accept/dismiss/convert), weight auto-tuning from feedback signals, signal effectiveness dashboard.
-- [ ] **M5 — Production Hardening**
-  Cloud warehouse migration, CI/CD pipeline, dbt tests, data quality checks, auth, rate limiting, monitoring.
+- [x] **M4 — Feedback & Tuning**
+  Alert feedback table (accept/dismiss/convert/stale), signal effectiveness report with per-signal acceptance rates, automated weight tuning recommendations with `--apply` to update seed CSVs.
+- [x] **M5 — Production Hardening**
+  35 dbt data tests (not_null, unique, accepted_values), 15 Python tests (datagen + scoring validation), GitHub Actions CI (lint + test), planted buyer recall validation.
 
 ## Project Structure
 
